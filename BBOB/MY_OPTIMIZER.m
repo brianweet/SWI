@@ -1,36 +1,37 @@
-%% Bacterial foraging 
-% Animiation of bacteria movement to get the global minimum solution every chemotactic 
-%
-% Author: Wael Mansour (wael192@yahoo.com)
-%
-% MSc Student, Electrical Enginering Dept, 
-% Faculty of Engineering Cairo University, Egypt
+function xbest = MY_OPTIMIZER(FUN, DIM, ftarget, maxfunevals)
+% MY_OPTIMIZER(FUN, DIM, ftarget, maxfunevals)
+% samples new points uniformly randomly in [-5,5]^DIM
+% and evaluates them on FUN until ftarget of maxfunevals
+% is reached, or until 1e8 * DIM fevals are conducted. 
 
+%   maxfunevals = min(1e8 * DIM, maxfunevals); 
+%   popsize = min(maxfunevals, 200);
+%   fbest = inf;
+%   for iter = 1:ceil(maxfunevals/popsize)
+%     xpop = 10 * rand(DIM, popsize) - 5;      % new solutions
+%     [fvalues, idx] = sort(feval(FUN, xpop)); % evaluate
+%     if fbest > fvalues(1)                    % keep best
+%       fbest = fvalues(1);
+%       xbest = xpop(:,1);
+%     end
+%     if feval(FUN, 'fbest') < ftarget         % COCO-task achieved
+%       break;                                 % (works also for noisy functions)
+%     end
+%   end 
 
-
-
-
-%%
-%Initialization
-clear all   
-%clc
-p=2;                         % dimension of search space 
-s=26;                        % The number of bacteria 
+p=DIM;                       % dimension of search space 
+%s=26;                        % The number of bacteria 
+s=20;
 Nc=50;                       % Number of chemotactic steps 
 Ns=4;                        % Limits the length of a swim 
 Nre=4;                       % The number of reproduction steps 
 Ned=2;                       % The number of elimination-dispersal events 
 Sr=s/2;                      % The number of bacteria reproductions (splits) per generation 
 Ped=0.25;                    % The probabilty that each bacteria will be eliminated/dispersed 
-c(:,1)=0.1*ones(s,1);        % the run length  
-lb=-5;                       % The lowerbound of the search space
-ub=5;                        % The upperbound of the search space
-
-% BwE: useless loop
+c(:,1)=0.05*ones(s,1);       % the run length  
 for m=1:s                    % the initital posistions 
-    P(1,:,1,1,1)= lb+(ub-lb).*rand(s,1)';
-    P(2,:,1,1,1)= lb+(ub-lb).*rand(s,1)';
-   %P(3,:,1,1,1)= .2*rand(s,1)';
+    P(1,:,1,1,1)= 5*rand(s,1)';
+    P(2,:,1,1,1)= 5*rand(s,1)';
 end                                                                  
      
 %%
@@ -39,8 +40,10 @@ end
 
 %Elimination and dispersal loop 
 for ell=1:Ned
+    
 
 %Reprodution loop
+
 
     for K=1:Nre    
 
@@ -49,23 +52,30 @@ for ell=1:Ned
         for j=1:Nc
             
             for i=1:s        
-                J(i,j,K,ell)=Live_fn(P(:,i,j,K,ell));         
+                J(i,j,K,ell) = feval(FUN, P(:,i,j,K,ell));
+                %Live_fn(P(:,i,j,K,ell));         
 
-% Tumble                
+% Tumble
+
+                        
                 Jlast=J(i,j,K,ell);   
                 Delta(:,i)=(2*round(rand(p,1))-1).*rand(p,1); 	             	
                 P(:,i,j+1,K,ell)=P(:,i,j,K,ell)+c(i,K)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i)); % This adds a unit vector in the random direction            
  
 % Swim (for bacteria that seem to be headed in the right direction)     
                 
-                J(i,j+1,K,ell)=Live_fn(P(:,i,j+1,K,ell));  
+                J(i,j+1,K,ell)=...
+                    feval(FUN, P(:,i,j+1,K,ell));
+                %Live_fn(P(:,i,j+1,K,ell));  
                 m=0;         % Initialize counter for swim length 
                     while m<Ns     
                           m=m+1;
                           if J(i,j+1,K,ell)<Jlast  
                              Jlast=J(i,j+1,K,ell);    
                              P(:,i,j+1,K,ell)=P(:,i,j+1,K,ell)+c(i,K)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i)) ;  
-                             J(i,j+1,K,ell)=Live_fn(P(:,i,j+1,K,ell));  
+                             J(i,j+1,K,ell)= ...
+                                 feval(FUN, P(:,i,j+1,K,ell));
+                             % Live_fn(P(:,i,j+1,K,ell));  
                           else       
                              m=Ns ;     
                           end        
@@ -104,22 +114,19 @@ for ell=1:Ned
         for m=1:s 
             if  Ped>rand % % Generate random number 
                 P(1,:,1,1,1)= 50*rand(s,1)';
-                P(2,:,1,1,1)= .2*rand(s,1)';
-               %P(3,:,1,1,1)= .2*rand(s,1)';   
+                P(2,:,1,1,1)= .2*rand(s,1)';  
             else 
                 P(:,m,1,1,ell+1)=P(:,m,1,Nre+1,ell); % Bacteria that are not dispersed
             end        
         end 
+        
+        reproduction = J(:,1:Nc,Nre,ell);
+        [jlastreproduction,O] = min(reproduction,[],2);  % min cost function for each bacterial 
+        [~,I] = min(jlastreproduction);
+        xbest=P(:,I,O(I,:),K,ell);
+        
+        if xbest < ftarget
+            break;
+        end  
     end % Go to next elimination and disperstal 
-
-%Report
-           reproduction = J(:,1:Nc,Nre,Ned);
-           [jlastreproduction,O] = min(reproduction,[],2);  % min cost function for each bacterial 
-           [Y,I] = min(jlastreproduction)
-           pbest=P(:,I,O(I,:),K,ell)
-         
-
-                           
-
-
-                             
+  
