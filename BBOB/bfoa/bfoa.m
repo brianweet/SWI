@@ -21,10 +21,10 @@ close all
 
 p=DIM;                 % Dimension of the search space
 
-S=50;	% The number of bacteria in the population (for convenience, require this to be an
+S=20;	% The number of bacteria in the population (for convenience, require this to be an
         % an even number)
 
-Nc=100; % Number of chemotactic steps per bacteria lifetime (between reproduction steps), assumed
+Nc=40; % Number of chemotactic steps per bacteria lifetime (between reproduction steps), assumed
         % for convenience to be the same for every bacteria in the population
 Ns=4;   % Limits the length of a swim when it is on a gradient
 
@@ -61,7 +61,7 @@ for m=1:S
 	%P(:,m,1,1,1)=(15*((2*round(rand(p,1))-1).*rand(p,1))+[15;15]);
 	%BwE Because of bbob: initialize domain uniformly randomly in [-5,5]^DIM
 	%P(:,m,1,1,1)= 10 * rand(DIM, popsize) - 5;
-    P(:,m,1,1,1)=(5^DIM*((2*round(rand(p,1))-1).*rand(p,1)));
+    P(:,m,1,1,1)=(5*((2*round(rand(p,1))-1).*rand(p,1)));
 end
 
 % Next, initialize the parameters of the bacteria that govern
@@ -83,6 +83,10 @@ C(:,1)=runlengthunit*ones(S,1);
 
 J=0*ones(S,Nc,Nre,Ned);
 Jhealth=0*ones(S,1);
+
+% BBOB variables
+fbest = inf;
+xbest = zeros(2,1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -111,7 +115,15 @@ for j=1:Nc
 % 		J(i,j,k,ell)=nutrientsfunc(P(:,i,j,k,ell),flag);
 %		J(i,j,k,ell)=nutrientsfunc1(P(:,i,j,k,ell),flag);
 		%BwE Because of bbob: use the FUN that is given as parameter
-		J(i,j,k,ell)=feval(FUN, P(:,i,j,k,ell));
+        fcurrent = feval(FUN, P(:,i,j,k,ell));
+        if fcurrent < fbest
+            fbest = fcurrent;
+            xbest = P(:,i,j,k,ell);
+            if fbest <= ftarget
+                break;
+            end
+        end
+		J(i,j,k,ell)=fcurrent;
 
 		% Next, add on cell-cell attraction effect:
 		
@@ -144,7 +156,15 @@ for j=1:Nc
 															% a small step (used by the bacterium to
 															% decide if it should keep swimming)
 		%BwE Because of bbob: use the FUN that is given as parameter
-		J(i,j+1,k,ell)=feval(FUN, P(:,i,j+1,k,ell));
+        fcurrent = feval(FUN, P(:,i,j+1,k,ell));
+        if fcurrent < fbest
+            fbest = fcurrent;
+            xbest = P(:,i,j+1,k,ell);
+            if fbest <= ftarget
+                break;
+            end
+        end
+		J(i,j+1,k,ell)=fcurrent;
 		
 		% Next, add on cell-cell attraction effect:
 		
@@ -169,7 +189,15 @@ for j=1:Nc
 %				J(i,j+1,k,ell)=nutrientsfunc1(P(:,i,j+1,k,ell),flag); % Find concentration at where
 																	% it swam to and give it new cost value
 				%BwE Because of bbob: use the FUN that is given as parameter
-				J(i,j+1,k,ell)=feval(FUN, P(:,i,j+1,k,ell));													
+                fcurrent = feval(FUN, P(:,i,j+1,k,ell));
+                if fcurrent < fbest
+                    fbest = fcurrent;
+                    xbest = P(:,i,j+1,k,ell);
+                    if fbest <= ftarget
+                        break;
+                    end
+                end
+                J(i,j+1,k,ell)=fcurrent;													
 																	
 				% Next, add on cell-cell attraction effect:
 		
@@ -226,7 +254,9 @@ end  % k=1:Nre
 	
 	for m=1:S
 		if ped>rand  % Generate random number and if ped bigger than it then eliminate/disperse
-			P(:,m,1,1,ell+1)=(15*((2*round(rand(p,1))-1).*rand(p,1))+[15;15]);
+			%P(:,m,1,1,ell+1)=(15*((2*round(rand(p,1))-1).*rand(p,1))+[15;15]);
+            %BwE change random number produced
+            P(:,m,1,1,ell+1)=(5*((2*round(rand(p,1))-1).*rand(p,1)));
 		else
 			P(:,m,1,1,ell+1)=P(:,m,1,Nre+1,ell);  % Bacteria that are not dispersed
 		end
@@ -239,9 +269,9 @@ end  % ell=1:Ned
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Plot the function we are seeking the minimum of:
-%BwE range is [-5,5]^DIM
+%BwE range is [-5,5]
 
-x=-5^DIM:5^DIM/100:5^DIM;   % For our function the range of values we are considering
+x=-5:5/100:5;   % For our function the range of values we are considering
 y=x;
 
 % Compute the function that we are trying to find the minimum of.
@@ -288,7 +318,7 @@ subplot(2,2,mm)
 for nn=1:S % Plot all bacteria trajectories for generation mm
 plot(t,squeeze(P(1,nn,:,mm,kk)),t,squeeze(P(2,nn,:,mm,kk)))
 %plot(t,squeeze(P(1,nn,:,mm,kk)),'-',t,squeeze(P(2,nn,:,mm,kk)),'-')
-axis([min(t) max(t) -5^DIM 5^DIM])
+axis([min(t) max(t) -5 5])
 hold on
 end
 T=num2str(mm);
@@ -311,7 +341,7 @@ for nn=1:S  % Plot all bacteria trajectories for generation mm
 hold on
 plot(squeeze(P(1,nn,:,mm,kk)),squeeze(P(2,nn,:,mm,kk)))
 %plot(squeeze(P(1,nn,:,mm,kk)),squeeze(P(2,nn,:,mm,kk)),'-')
-axis([-5^DIM 5^DIM -5^DIM 5^DIM])
+axis([-5 5 -5 5])
 end
 T=num2str(mm);
 T=strcat('Bacteria trajectories, Generation=',T);
@@ -334,7 +364,7 @@ figure(2*Ned+2)
 clf
 		contour(x,y,z,25)
 		colormap(jet)
-		axis([-5^DIM,5^DIM,-5^DIM,5^DIM]);
+		axis([-5,5,-5,5]);
 		xlabel('\theta_1');
 		ylabel('\theta_2');
 		title('Bacteria movements');
