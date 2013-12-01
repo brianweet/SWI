@@ -42,10 +42,6 @@ ped=0.25; % The probabilty that each bacteria will be eliminated/dispersed (assu
 		  % for convenience make the elimination/dispersal events occur immediately after
 		  % reproduction)
 
-flag=2; % If flag=0 indicates that will have nutrients and cell-cell attraction
-        % If flag=1 indicates that will have no (zero) nutrients and only cell-cell attraction
-		% If flag=2 indicates that will have nutrients and no cell-cell attraction
-		
 % Initial population
 
 P(:,:,:,:,:)=0*ones(p,S,Nc,Nre,Ned);  % First, allocate needed memory
@@ -54,17 +50,9 @@ P(:,:,:,:,:)=0*ones(p,S,Nc,Nre,Ned);  % First, allocate needed memory
 lb = -4;
 ub = 4;
 
-% Initialize locations of bacteria all at the center (for studying one swarming case - when nutrientsfunc1 is used)
-% for m=1:S
-% 	P(:,m,1,1,1)=[15;15];
-% end
-
-
 % % Another initialization possibility: Randomly place on domain:
 for m=1:S
-	%P(:,m,1,1,1)=(15*((2*round(rand(p,1))-1).*rand(p,1))+[15;15]);
 	%BwE Because of bbob: initialize domain uniformly randomly in [-4,4]
-	%P(:,m,1,1,1)= 10 * rand(DIM, popsize) - 5;
     P(:,m,1,1,1)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
 end
 
@@ -92,7 +80,6 @@ Jhealth=0*ones(S,1);
 fbest = inf;
 xbest = zeros(2,1);
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %---------------------------------
@@ -117,18 +104,12 @@ for j=1:Nc
 		
 		% Compute the nutrient concentration at the current location of each bacterium
 		
-% 		J(i,j,k,ell)=nutrientsfunc(P(:,i,j,k,ell),flag);
-%		J(i,j,k,ell)=nutrientsfunc1(P(:,i,j,k,ell),flag);
 		%BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
         [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i,j,k,ell), fbest, xbest);
         if fbest < ftarget
             return
         end
 		J(i,j,k,ell)=fcurrent;
-
-		% Next, add on cell-cell attraction effect:
-		
-		J(i,j,k,ell)=J(i,j,k,ell)+bact_cellcell_attract_func(P(:,i,j,k,ell),P(:,:,j,k,ell),S,flag);
 		
 		%-----------
 		% Tumble:
@@ -151,21 +132,15 @@ for j=1:Nc
 		%---------------------------------------------------------------------
 		% Swim (for bacteria that seem to be headed in the right direction):
 		%---------------------------------------------------------------------
-
-%		J(i,j+1,k,ell)=nutrientsfunc(P(:,i,j+1,k,ell),flag); % Nutrient concentration for each bacterium after
-%		J(i,j+1,k,ell)=nutrientsfunc1(P(:,i,j+1,k,ell),flag); % Nutrient concentration for each bacterium after
-															% a small step (used by the bacterium to
-															% decide if it should keep swimming)
+        % Nutrient concentration for each bacterium after
+        % a small step (used by the bacterium to decide if it should keep swimming)
+        
 		%BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
         [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i,j+1,k,ell), fbest, xbest);
         if fbest < ftarget
             return
         end
 		J(i,j+1,k,ell)=fcurrent;
-		
-		% Next, add on cell-cell attraction effect:
-		
-		J(i,j+1,k,ell)=J(i,j+1,k,ell)+bact_cellcell_attract_func(P(:,i,j+1,k,ell),P(:,:,j+1,k,ell),S,flag);
 															
 		m=0; % Initialize counter for swim length 
 		
@@ -182,21 +157,13 @@ for j=1:Nc
 				
 				P(:,i,j+1,k,ell)=P(:,i,j+1,k,ell)+C(i,k)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i));
 				
-%				J(i,j+1,k,ell)=nutrientsfunc(P(:,i,j+1,k,ell),flag); % Find concentration at where
-%				J(i,j+1,k,ell)=nutrientsfunc1(P(:,i,j+1,k,ell),flag); % Find concentration at where
-																	% it swam to and give it new cost value
-                
+                % Find concentration at where it swam to and give it new cost value
                 %BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
                 [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i,j+1,k,ell), fbest, xbest);
                 if fbest < ftarget
                     return
                 end
-                J(i,j+1,k,ell)=fcurrent;
-																	
-				% Next, add on cell-cell attraction effect:
-		
-				J(i,j+1,k,ell)=J(i,j+1,k,ell)+bact_cellcell_attract_func(P(:,i,j+1,k,ell),P(:,:,j+1,k,ell),S,flag);
-																	
+                J(i,j+1,k,ell)=fcurrent;										
 			else  % It did not move up the gradient so stop the run for this bacterium
 				m=Ns;
 			end
@@ -211,11 +178,11 @@ end  % j=1:Nc
 
 	% Reproduction
 	
-	Jhealth=sum(J(:,:,k,ell),2);  % Set the health of each of the S bacteria.
-	                                     % There are many ways to define this; here, we sum
-										 % the nutrient concentrations over the lifetime of the
-										 % bacterium.
-
+    % Set the health of each of the S bacteria.
+    % There are many ways to define this; here, we sum
+	% the nutrient concentrations over the lifetime of the bacterium.
+	Jhealth=sum(J(:,:,k,ell),2);         
+                                         
 	% Sort cost and population to determine who can reproduce (ones that were in best nutrient
 	% concentrations over their life-time reproduce)
 	
@@ -248,7 +215,6 @@ end  % k=1:Nre
 	
 	for m=1:S
 		if ped>rand  % Generate random number and if ped bigger than it then eliminate/disperse
-			%P(:,m,1,1,ell+1)=(15*((2*round(rand(p,1))-1).*rand(p,1))+[15;15]);
             %BwE change random number produced min -4 max 4
             P(:,m,1,1,ell+1)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
 		else
