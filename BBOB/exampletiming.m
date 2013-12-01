@@ -13,7 +13,7 @@ for dim = [2,3,5,10,20,40]
   ftarget = fgeneric('initialize', 8, 1, 'tmp');
   tic;
   while toc < 30  % at least 30 seconds
-    MY_OPTIMIZER(@fgeneric, dim, ftarget, 1e5);  % adjust maxfunevals
+    bfoa(@fgeneric, dim, ftarget, 1e5);  % adjust maxfunevals
     nbrun = nbrun + 1;
   end  % while
   timings(end+1) = toc / fgeneric('evaluations');

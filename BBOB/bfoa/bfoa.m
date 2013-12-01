@@ -21,10 +21,10 @@ close all
 
 p=DIM;                 % Dimension of the search space
 
-S=20;	% The number of bacteria in the population (for convenience, require this to be an
+S=50;	% The number of bacteria in the population (for convenience, require this to be an
         % an even number)
 
-Nc=40; % Number of chemotactic steps per bacteria lifetime (between reproduction steps), assumed
+Nc=50; % Number of chemotactic steps per bacteria lifetime (between reproduction steps), assumed
         % for convenience to be the same for every bacteria in the population
 Ns=4;   % Limits the length of a swim when it is on a gradient
 
@@ -34,7 +34,7 @@ Sr=S/2;	 % The number of bacteria reproductions (splits) per generation (this
 		 % choice keeps the number of bacteria constant)
 		 
 
-Ned=2; % The number of elimination-dispersal events (Nre reproduction steps in between each event)
+Ned=10; % The number of elimination-dispersal events (Nre reproduction steps in between each event)
 
 ped=0.25; % The probabilty that each bacteria will be eliminated/dispersed (assume that 
           % elimination/dipersal events occur at a frequency such that there can be 
@@ -50,6 +50,10 @@ flag=2; % If flag=0 indicates that will have nutrients and cell-cell attraction
 
 P(:,:,:,:,:)=0*ones(p,S,Nc,Nre,Ned);  % First, allocate needed memory
 
+% BBOB search space bounds
+lb = -4;
+ub = 4;
+
 % Initialize locations of bacteria all at the center (for studying one swarming case - when nutrientsfunc1 is used)
 % for m=1:S
 % 	P(:,m,1,1,1)=[15;15];
@@ -59,9 +63,9 @@ P(:,:,:,:,:)=0*ones(p,S,Nc,Nre,Ned);  % First, allocate needed memory
 % % Another initialization possibility: Randomly place on domain:
 for m=1:S
 	%P(:,m,1,1,1)=(15*((2*round(rand(p,1))-1).*rand(p,1))+[15;15]);
-	%BwE Because of bbob: initialize domain uniformly randomly in [-5,5]^DIM
+	%BwE Because of bbob: initialize domain uniformly randomly in [-4,4]
 	%P(:,m,1,1,1)= 10 * rand(DIM, popsize) - 5;
-    P(:,m,1,1,1)=(5*((2*round(rand(p,1))-1).*rand(p,1)));
+    P(:,m,1,1,1)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
 end
 
 % Next, initialize the parameters of the bacteria that govern
@@ -87,6 +91,7 @@ Jhealth=0*ones(S,1);
 % BBOB variables
 fbest = inf;
 xbest = zeros(2,1);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -114,14 +119,10 @@ for j=1:Nc
 		
 % 		J(i,j,k,ell)=nutrientsfunc(P(:,i,j,k,ell),flag);
 %		J(i,j,k,ell)=nutrientsfunc1(P(:,i,j,k,ell),flag);
-		%BwE Because of bbob: use the FUN that is given as parameter
-        fcurrent = feval(FUN, P(:,i,j,k,ell));
-        if fcurrent < fbest
-            fbest = fcurrent;
-            xbest = P(:,i,j,k,ell);
-            if fbest <= ftarget
-                break;
-            end
+		%BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
+        [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i,j,k,ell), fbest, xbest);
+        if fbest < ftarget
+            return
         end
 		J(i,j,k,ell)=fcurrent;
 
@@ -155,14 +156,10 @@ for j=1:Nc
 %		J(i,j+1,k,ell)=nutrientsfunc1(P(:,i,j+1,k,ell),flag); % Nutrient concentration for each bacterium after
 															% a small step (used by the bacterium to
 															% decide if it should keep swimming)
-		%BwE Because of bbob: use the FUN that is given as parameter
-        fcurrent = feval(FUN, P(:,i,j+1,k,ell));
-        if fcurrent < fbest
-            fbest = fcurrent;
-            xbest = P(:,i,j+1,k,ell);
-            if fbest <= ftarget
-                break;
-            end
+		%BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
+        [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i,j+1,k,ell), fbest, xbest);
+        if fbest < ftarget
+            return
         end
 		J(i,j+1,k,ell)=fcurrent;
 		
@@ -188,16 +185,13 @@ for j=1:Nc
 %				J(i,j+1,k,ell)=nutrientsfunc(P(:,i,j+1,k,ell),flag); % Find concentration at where
 %				J(i,j+1,k,ell)=nutrientsfunc1(P(:,i,j+1,k,ell),flag); % Find concentration at where
 																	% it swam to and give it new cost value
-				%BwE Because of bbob: use the FUN that is given as parameter
-                fcurrent = feval(FUN, P(:,i,j+1,k,ell));
-                if fcurrent < fbest
-                    fbest = fcurrent;
-                    xbest = P(:,i,j+1,k,ell);
-                    if fbest <= ftarget
-                        break;
-                    end
+                
+                %BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
+                [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i,j+1,k,ell), fbest, xbest);
+                if fbest < ftarget
+                    return
                 end
-                J(i,j+1,k,ell)=fcurrent;													
+                J(i,j+1,k,ell)=fcurrent;
 																	
 				% Next, add on cell-cell attraction effect:
 		
@@ -255,8 +249,8 @@ end  % k=1:Nre
 	for m=1:S
 		if ped>rand  % Generate random number and if ped bigger than it then eliminate/disperse
 			%P(:,m,1,1,ell+1)=(15*((2*round(rand(p,1))-1).*rand(p,1))+[15;15]);
-            %BwE change random number produced
-            P(:,m,1,1,ell+1)=(5*((2*round(rand(p,1))-1).*rand(p,1)));
+            %BwE change random number produced min -4 max 4
+            P(:,m,1,1,ell+1)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
 		else
 			P(:,m,1,1,ell+1)=P(:,m,1,Nre+1,ell);  % Bacteria that are not dispersed
 		end
@@ -267,122 +261,122 @@ end  % ell=1:Ned
 %---------------------------------
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Plot the function we are seeking the minimum of:
-%BwE range is [-5,5]
-
-x=-5:5/100:5;   % For our function the range of values we are considering
-y=x;
-
-% Compute the function that we are trying to find the minimum of.
-
-for jj=1:length(x)
-	for ii=1:length(y)
-%		z(ii,jj)=nutrientsfunc([x(jj);y(ii)],flag);
-%		z(ii,jj)=nutrientsfunc1([x(jj);y(ii)],flag);
-		%BwE Because of bbob: use the FUN that is given as parameter
-		%This is only for plotting so this should be removed.
-		z(ii,jj)=feval(FUN, [x(jj);y(ii)]);
-		
-	end
-end
-
-% First, show the actual function to be maximized
-
-figure(1)
-clf
-surf(x,y,z);
-colormap(jet)
-% Use next line for generating plots to put in black and white documents.
-colormap(white);
-xlabel('x=\theta_1');
-ylabel('y=\theta_2');
-zlabel('z=J');
-title('Nutrient concentration (valleys=food, peaks=noxious)');
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Next, provide some plots of the results of the simulation.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-t=0:Nc;  % For use in plotting (makes t=0 correspond to the 1 index and plots to Nc+1)
-
-% As is Figure 2 (4) shows parameter trajectories for 4 generations, then there is an elimination/dispersal event
-% Figure 3 (5) shows parameter trajectories for the following 4 generations (after the elim/disp event)
-
-for kk=1:Ned
-figure(kk+1) 
-clf
-for mm=1:Nre
-subplot(2,2,mm)
-for nn=1:S % Plot all bacteria trajectories for generation mm
-plot(t,squeeze(P(1,nn,:,mm,kk)),t,squeeze(P(2,nn,:,mm,kk)))
-%plot(t,squeeze(P(1,nn,:,mm,kk)),'-',t,squeeze(P(2,nn,:,mm,kk)),'-')
-axis([min(t) max(t) -5 5])
-hold on
-end
-T=num2str(mm);
-T=strcat('Bacteria trajectories, Generation=',T);
-title(T)
-xlabel('Iteration, j')
-ylabel('\theta_1, \theta_2')
-hold off
-end
-end
-
-for kk=1:Ned
-figure(Ned+kk+1) 
-clf
-for mm=1:Nre
-subplot(2,2,mm)
-contour(x,y,z,25)
-colormap(jet)
-for nn=1:S  % Plot all bacteria trajectories for generation mm
-hold on
-plot(squeeze(P(1,nn,:,mm,kk)),squeeze(P(2,nn,:,mm,kk)))
-%plot(squeeze(P(1,nn,:,mm,kk)),squeeze(P(2,nn,:,mm,kk)),'-')
-axis([-5 5 -5 5])
-end
-T=num2str(mm);
-T=strcat('Bacteria trajectories, Generation=',T);
-title(T)
-% Use next line for generating plots to put in black and white documents.
-%colormap(gray);
-xlabel('\theta_1');
-ylabel('\theta_2');
-hold off
-end
-end
-
-%%%%%%%%%%%%
-%pause % Can leave this in if want to avoid movie (then hit control-C)
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Next, show a movie of the chemotactic steps:
-
-figure(2*Ned+2) 
-clf
-		contour(x,y,z,25)
-		colormap(jet)
-		axis([-5,5,-5,5]);
-		xlabel('\theta_1');
-		ylabel('\theta_2');
-		title('Bacteria movements');
-hold on
-
-M = moviein(Nc);
-	for j=1:Nc;
-% Can change generation step and elimination-dispersal step on next line.
-% Currently for 1,1 - the first generation in the first elimination dispersal step
-        for i=1:S
-		v=plot(squeeze(P(1,i,j:j+1,1,1)),squeeze(P(2,i,j:j+1,1,1)),'-');
-		set(v,'MarkerSize',3);
-		end
-        M(:,j)=getframe;
-    end;
-	
-%movie(M,0)
-%save bacteria_swarm
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % Plot the function we are seeking the minimum of:
+% %BwE range is [-5,5]
+% 
+% x=-5:5/100:5;   % For our function the range of values we are considering
+% y=x;
+% 
+% % Compute the function that we are trying to find the minimum of.
+% 
+% for jj=1:length(x)
+% 	for ii=1:length(y)
+% %		z(ii,jj)=nutrientsfunc([x(jj);y(ii)],flag);
+% %		z(ii,jj)=nutrientsfunc1([x(jj);y(ii)],flag);
+% 		%BwE Because of bbob: use the FUN that is given as parameter
+% 		%This is only for plotting so this should be removed.
+% 		z(ii,jj)=feval(FUN, [x(jj);y(ii)]);
+% 		
+% 	end
+% end
+% 
+% % First, show the actual function to be maximized
+% 
+% figure(1)
+% clf
+% surf(x,y,z);
+% colormap(jet)
+% % Use next line for generating plots to put in black and white documents.
+% colormap(white);
+% xlabel('x=\theta_1');
+% ylabel('y=\theta_2');
+% zlabel('z=J');
+% title('Nutrient concentration (valleys=food, peaks=noxious)');
+% 
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % Next, provide some plots of the results of the simulation.
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+% 
+% t=0:Nc;  % For use in plotting (makes t=0 correspond to the 1 index and plots to Nc+1)
+% 
+% % As is Figure 2 (4) shows parameter trajectories for 4 generations, then there is an elimination/dispersal event
+% % Figure 3 (5) shows parameter trajectories for the following 4 generations (after the elim/disp event)
+% 
+% for kk=1:Ned
+% figure(kk+1) 
+% clf
+% for mm=1:Nre
+% subplot(2,2,mm)
+% for nn=1:S % Plot all bacteria trajectories for generation mm
+% plot(t,squeeze(P(1,nn,:,mm,kk)),t,squeeze(P(2,nn,:,mm,kk)))
+% %plot(t,squeeze(P(1,nn,:,mm,kk)),'-',t,squeeze(P(2,nn,:,mm,kk)),'-')
+% axis([min(t) max(t) -5 5])
+% hold on
+% end
+% T=num2str(mm);
+% T=strcat('Bacteria trajectories, Generation=',T);
+% title(T)
+% xlabel('Iteration, j')
+% ylabel('\theta_1, \theta_2')
+% hold off
+% end
+% end
+% 
+% for kk=1:Ned
+% figure(Ned+kk+1) 
+% clf
+% for mm=1:Nre
+% subplot(2,2,mm)
+% contour(x,y,z,25)
+% colormap(jet)
+% for nn=1:S  % Plot all bacteria trajectories for generation mm
+% hold on
+% plot(squeeze(P(1,nn,:,mm,kk)),squeeze(P(2,nn,:,mm,kk)))
+% %plot(squeeze(P(1,nn,:,mm,kk)),squeeze(P(2,nn,:,mm,kk)),'-')
+% axis([-5 5 -5 5])
+% end
+% T=num2str(mm);
+% T=strcat('Bacteria trajectories, Generation=',T);
+% title(T)
+% % Use next line for generating plots to put in black and white documents.
+% %colormap(gray);
+% xlabel('\theta_1');
+% ylabel('\theta_2');
+% hold off
+% end
+% end
+% 
+% %%%%%%%%%%%%
+% %pause % Can leave this in if want to avoid movie (then hit control-C)
+% 
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% % Next, show a movie of the chemotactic steps:
+% 
+% figure(2*Ned+2) 
+% clf
+% 		contour(x,y,z,25)
+% 		colormap(jet)
+% 		axis([-5,5,-5,5]);
+% 		xlabel('\theta_1');
+% 		ylabel('\theta_2');
+% 		title('Bacteria movements');
+% hold on
+% 
+% M = moviein(Nc);
+% 	for j=1:Nc;
+% % Can change generation step and elimination-dispersal step on next line.
+% % Currently for 1,1 - the first generation in the first elimination dispersal step
+%         for i=1:S
+% 		v=plot(squeeze(P(1,i,j:j+1,1,1)),squeeze(P(2,i,j:j+1,1,1)),'-');
+% 		set(v,'MarkerSize',3);
+% 		end
+%         M(:,j)=getframe;
+%     end;
+% 	
+% %movie(M,0)
+% %save bacteria_swarm
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
