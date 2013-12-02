@@ -31,20 +31,12 @@ C=0*ones(S,max_generation); % Allocate memory
 runlengthunit=0.1;
 C(:,1)=runlengthunit*ones(S,1);
 
-E=100;
+e=zeros(1,max_generation);
+e(1,1)=100;
 
 n = 10;
 alpha = 10;
 beta = 10;
-
-
-t=0;
-
-
-
-
-
-
 
 
 %Nc=50; % Number of chemotactic steps per bacteria lifetime (between reproduction steps), assumed
@@ -68,10 +60,9 @@ ped=0.25; % The probabilty that each bacteria will be eliminated/dispersed (assu
 % Initial population
 
 %P(:,:,:,:,:)=0*ones(p,S,Nc,Nre,Ned);  % First, allocate needed memory
-P(:,:)=0*ones(p,S);  % First, allocate needed memory
+P(:,:)=zeros(p,S);  % First, allocate needed memory
 
-% BBOB search space bounds
-lb = -4;
+% BBOB search space bounds (lb = -ub)
 ub = 4;
 
 % % Another initialization possibility: Randomly place on domain:
@@ -85,7 +76,10 @@ end
 
 % Allocate memory for cost function:
 
-J=0*ones(S);
+J=0*ones(S,max_generation);
+%JbestX=cell(S,max_generation);
+JbestX=zeros(S,max_generation,p);
+JbestJ=inf(S,max_generation);
 Jhealth=0*ones(S,1);
 
 % BBOB variables
@@ -113,21 +107,23 @@ xbest = zeros(2,1);
 %for j=1:Nc
 for t = 1:max_generation
 	for i=1:S  % For each bacterium
-		
-		% Compute the nutrient concentration at the current location of each bacterium
-		
-		%BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
-        [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i), fbest, xbest);
+        %BwE: keep track of best position for this bacterium for this generation
+		sBestJ=inf;
+        sBestX=[0;0];
+        
+		% Compute the nutrient concentration at the current location of this bacterium
+		[J(i,t), fbest, xbest, sBestJ, sBestX] = ...
+            evaluate_function(FUN, P(:,i), fbest, xbest, sBestJ, sBestX);
+        %BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
         if fbest < ftarget
             return
         end
-		J(i)=fcurrent;
 		
 		%-----------
 		% Tumble:
 		%-----------
 		
-		Jlast=J(i); % Initialize the nutrient concentration to be the one at the tumble
+		Jlast=J(i,t); % Initialize the nutrient concentration to be the one at the tumble
 							% (to be used below when test if going up gradient so a run should take place)
 
 		% First, generate a random direction
@@ -148,11 +144,11 @@ for t = 1:max_generation
         % a small step (used by the bacterium to decide if it should keep swimming)
         
 		%BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
-        [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i), fbest, xbest);
+        [J(i,t), fbest, xbest, sBestJ, sBestX] = ...
+            evaluate_function(FUN, P(:,i), fbest, xbest, sBestJ, sBestX);
         if fbest < ftarget
             return
         end
-		J(i)=fcurrent;
 															
 		m=0; % Initialize counter for swim length 
 		
@@ -160,9 +156,9 @@ for t = 1:max_generation
 			
 			m=m+1;
 			
-			if J(i)<Jlast  % Test if moving up a nutrient gradient.  If it is then move further in
+			if J(i,t)<Jlast  % Test if moving up a nutrient gradient.  If it is then move further in
 				                     % same direction
-				Jlast=J(i); % First, save the nutrient concentration at current location
+				Jlast=J(i,t); % First, save the nutrient concentration at current location
 									  % to later use to see if moves up gradient at next step
 									  
 				% Next, extend the run in the same direction since it climbed at the last step
@@ -171,16 +167,20 @@ for t = 1:max_generation
 				
                 % Find concentration at where it swam to and give it new cost value
                 %BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
-                [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i), fbest, xbest);
+                [J(i,t), fbest, xbest, sBestJ, sBestX] = ...
+                    evaluate_function(FUN, P(:,i), fbest, xbest, sBestJ, sBestX);
                 if fbest < ftarget
                     return
-                end
-                J(i)=fcurrent;										
+                end								
 			else  % It did not move up the gradient so stop the run for this bacterium
 				m=Ns;
 			end
 		
 		end	% Test if should end run for bacterium
+        
+        %BwE: Save best position of this run for this bacteria
+        JbestX(i,t,:)=sBestX;
+        JbestJ(i,t)=sBestJ;
 	end  % Go to next bacterium
 
 	
@@ -201,7 +201,7 @@ for t = 1:max_generation
 	% Sort cost and population to determine who can reproduce (ones that were in best nutrient
 	% concentrations over their life-time reproduce)
 	
-	[Jhealth,sortind]=sort(J(:,1)); % Sorts the nutrient concentration in order 
+	[Jhealth,sortind]=sort(J(:,t)); % Sorts the nutrient concentration in order 
 									% of ascending cost in the first dimension (bacteria number)
 									% sortind are the indices in the new order
 		
@@ -214,10 +214,10 @@ for t = 1:max_generation
 		
 	% Split the bacteria (reproduction)
 	
-	for i=1:Sr
-		P(:,i+Sr)=P(:,i); % The least fit do not reproduce, the most 
+	for b=1:Sr
+		P(:,b+Sr)=P(:,b); % The least fit do not reproduce, the most 
 		 									% fit ones split into two identical copies 
-		C(i+Sr,t+1)=C(i,t); 	% and they get the same parameters as for their mother
+		%C(i+Sr,t+1)=C(i,t); 	% and they get the same parameters as for their mother
 	end
 
 	% Evolution can be added here (can add random modifications to C(i,k), Ns, Nc, etc)
@@ -248,16 +248,46 @@ for t = 1:max_generation
     % fbest is the best fitness value among all the bacteria in the colony
     % etis the required precision in the current generation
     % and n, a, and ß are user-defined constants
-    if mod(t,n) == 0
-        if fbest < e(t)
-            C(t+1) = C(t - n)/alpha;
+%     if mod(t,n) == 0
+%         if fbest < E(t)
+%             C(:,t) = C(:,t-n)/alpha;
+%             E(t) = E(t)/beta;
+%         else
+%             C(:,t) = C(:,t+1-n);
+%             E(t+1) = E(t+1-n);
+%         end
+%     else
+%         C(:,t+1) = C(:,t);
+%         E(t+1) = E(t);
+%     end
+    
+
+     if mod(t,n) == 0
+         
+        %Reinitialize colony position from the best-so-far position found by each bacterium    
+        for b=1:S
+            [~,idx]=sort(JbestJ(b,:));
+            P(:,b)= JbestX(b,idx(1),:);
+        end
+        
+        %if (min(JbestJ(:,t))-ftarget) < e(t)
+        if (fbest-ftarget) < e(t)
+            start = t-n;
+            if start < 1
+                start = 1;
+            end
+            C(:,t+1) = C(:,start)/alpha;
             e(t+1) = e(t)/beta;
         else
-            C(t+1) = C(t - n);
-            e(t+1) = e(t - n);
+            start = t-n;
+            if start < 1
+                start = 1;
+            end
+            C(:,t+1) = C(:,start);
+            e(t+1) = e(start);
         end
     else
-        C(t+1) = C(t);
+        C(:,t+1) = C(:,t);
         e(t+1) = e(t);
     end
 

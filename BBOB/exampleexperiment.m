@@ -13,7 +13,7 @@ maxfunevals = '10 * dim'; % 10*dim is a short test-experiment taking a few minut
 minfunevals = 'dim + 2';  % PUT MINIMAL SENSIBLE NUMBER OF EVALUATIONS for a restart
 maxrestarts = 1e4;        % SET to zero for an entirely deterministic algorithm
 
-dimensions = [2, 3, 5, 10, 20, 40];  % small dimensions first, for CPU reasons
+dimensions = [ 10, 20, 40];  % small dimensions first, for CPU reasons
 functions = benchmarks('FunctionIndices');  % or benchmarksnoisy(...)
 instances = [1:5, 31:40];  % 15 function instances
 
