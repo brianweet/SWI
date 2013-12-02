@@ -1,0 +1,29 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2008 The MathWorks, Inc.
+                         Version 7.6.0.324 (R2008a)
+                             February 10, 2008
+
+ 
+  To get started, type one of these: helpwin, helpdesk, or demo.
+  For product information, visit www.mathworks.com.
+ 
+>> >> >> >> >> >> >> >> >> >> >> Dimensions:           2 
+      runs:          81 
+ times [s]:     7.1e-04 
+Dimensions:           2            3 
+      runs:          81           44 
+ times [s]:     7.1e-04      7.3e-04 
+Dimensions:           2            3            5 
+      runs:          81           44           22 
+ times [s]:     7.1e-04      7.3e-04      7.7e-04 
+Dimensions:           2            3            5           10 
+      runs:          81           44           22            8 
+ times [s]:     7.1e-04      7.3e-04      7.7e-04      8.1e-04 
+Dimensions:           2            3            5           10           20 
+      runs:          81           44           22            8            3 
+ times [s]:     7.1e-04      7.3e-04      7.7e-04      8.1e-04      7.1e-04 
+Dimensions:           2            3            5           10           20           40 
+      runs:          81           44           22            8            3            1 
+ times [s]:     7.1e-04      7.3e-04      7.7e-04      8.1e-04      7.1e-04      8.1e-04 
+>> 

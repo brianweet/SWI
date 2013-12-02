@@ -1,0 +1,3 @@
+nohup matlab -nojvm -nodisplay < runFullBBOBnoiseless.m >> bboboutput_1komma4mirroredserialnoiseless1e4timesDimFunEvals.txt &
+nohup matlab -nojvm -nodisplay < runFullBBOBnoisy.m >> bboboutput_1komma4mirroredserialnoisy1e4timesDimFunEvals.txt &
+nohup matlab -nojvm -nodisplay < timingThe1komma4mirser.m > timingExperiments.,txt &

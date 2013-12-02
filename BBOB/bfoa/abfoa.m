@@ -23,18 +23,41 @@ p=DIM;                 % Dimension of the search space
 
 S=50;	% The number of bacteria in the population (for convenience, require this to be an
         % an even number)
+max_generation = 1000;
 
-Nc=50; % Number of chemotactic steps per bacteria lifetime (between reproduction steps), assumed
+% Set the basic run length step (one step is taken of this size if it does not go up a gradient
+C=0*ones(S,max_generation); % Allocate memory
+
+runlengthunit=0.1;
+C(:,1)=runlengthunit*ones(S,1);
+
+E=100;
+
+n = 10;
+alpha = 10;
+beta = 10;
+
+
+t=0;
+
+
+
+
+
+
+
+
+%Nc=50; % Number of chemotactic steps per bacteria lifetime (between reproduction steps), assumed
         % for convenience to be the same for every bacteria in the population
 Ns=4;   % Limits the length of a swim when it is on a gradient
 
 
-Nre=4;	 % The number of reproduction steps (right now the plotting is designed for Nre=4)
+%Nre=4;	 % The number of reproduction steps (right now the plotting is designed for Nre=4)
 Sr=S/2;	 % The number of bacteria reproductions (splits) per generation (this
 		 % choice keeps the number of bacteria constant)
 		 
 
-Ned=10; % The number of elimination-dispersal events (Nre reproduction steps in between each event)
+%Ned=10; % The number of elimination-dispersal events (Nre reproduction steps in between each event)
 
 ped=0.25; % The probabilty that each bacteria will be eliminated/dispersed (assume that 
           % elimination/dipersal events occur at a frequency such that there can be 
@@ -44,7 +67,8 @@ ped=0.25; % The probabilty that each bacteria will be eliminated/dispersed (assu
 
 % Initial population
 
-P(:,:,:,:,:)=0*ones(p,S,Nc,Nre,Ned);  % First, allocate needed memory
+%P(:,:,:,:,:)=0*ones(p,S,Nc,Nre,Ned);  % First, allocate needed memory
+P(:,:)=0*ones(p,S);  % First, allocate needed memory
 
 % BBOB search space bounds
 lb = -4;
@@ -56,24 +80,12 @@ for m=1:S
     P(:,m,1,1,1)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
 end
 
-% Next, initialize the parameters of the bacteria that govern
-% part of the chemotactic behavior 
 
-C=0*ones(S,Nre); % Allocate memory
-
-% Set the basic run length step (one step is taken of this size if it does not go up a gradient
-% but if it does go up then it can take as many as Ns such steps).  C(i,k) is the step size for
-% the ith bacteria at the kth reproduction step.  For now, the step size is assumed to be constant since 
-% we assume that perfect copies of bacteria are made, but later you can add evolutionary effects to modify 
-% this and perhaps Ns and Nc.
-
-runlengthunit=0.1;
-C(:,1)=runlengthunit*ones(S,1);
 
 
 % Allocate memory for cost function:
 
-J=0*ones(S,Nc,Nre,Ned);
+J=0*ones(S);
 Jhealth=0*ones(S,1);
 
 % BBOB variables
@@ -86,36 +98,36 @@ xbest = zeros(2,1);
 % Elimination-dispersal loop: 
 %---------------------------------
 
-for ell=1:Ned
+%for ell=1:Ned
 
 %---------------------------------
 % Reproduction loop: 
 %---------------------------------
 
-for k=1:Nre
+%for k=1:Nre
 
 %---------------------------------
 % Swim/tumble (chemotaxis) loop:
 %---------------------------------
 
-for j=1:Nc
-
+%for j=1:Nc
+for t = 1:max_generation
 	for i=1:S  % For each bacterium
 		
 		% Compute the nutrient concentration at the current location of each bacterium
 		
 		%BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
-        [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i,j,k,ell), fbest, xbest);
+        [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i), fbest, xbest);
         if fbest < ftarget
             return
         end
-		J(i,j,k,ell)=fcurrent;
+		J(i)=fcurrent;
 		
 		%-----------
 		% Tumble:
 		%-----------
 		
-		Jlast=J(i,j,k,ell); % Initialize the nutrient concentration to be the one at the tumble
+		Jlast=J(i); % Initialize the nutrient concentration to be the one at the tumble
 							% (to be used below when test if going up gradient so a run should take place)
 
 		% First, generate a random direction
@@ -125,7 +137,7 @@ for j=1:Nc
 		% Next, move all the bacteria by a small amount in the direction that the tumble resulted in
 		% (this implements the "searching" behavior in a homogeneous medium)
 		
-		P(:,i,j+1,k,ell)=P(:,i,j,k,ell)+C(i,k)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i));
+		P(:,i)=P(:,i)+C(i,t)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i));
 										% This adds a unit vector in the random direction, scaled
 										% by the step size C(i,k)
 		
@@ -136,11 +148,11 @@ for j=1:Nc
         % a small step (used by the bacterium to decide if it should keep swimming)
         
 		%BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
-        [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i,j+1,k,ell), fbest, xbest);
+        [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i), fbest, xbest);
         if fbest < ftarget
             return
         end
-		J(i,j+1,k,ell)=fcurrent;
+		J(i)=fcurrent;
 															
 		m=0; % Initialize counter for swim length 
 		
@@ -148,22 +160,22 @@ for j=1:Nc
 			
 			m=m+1;
 			
-			if J(i,j+1,k,ell)<Jlast  % Test if moving up a nutrient gradient.  If it is then move further in
+			if J(i)<Jlast  % Test if moving up a nutrient gradient.  If it is then move further in
 				                     % same direction
-				Jlast=J(i,j+1,k,ell); % First, save the nutrient concentration at current location
+				Jlast=J(i); % First, save the nutrient concentration at current location
 									  % to later use to see if moves up gradient at next step
 									  
 				% Next, extend the run in the same direction since it climbed at the last step
 				
-				P(:,i,j+1,k,ell)=P(:,i,j+1,k,ell)+C(i,k)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i));
+				P(:,i)=P(:,i)+C(i,t)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i));
 				
                 % Find concentration at where it swam to and give it new cost value
                 %BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
-                [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i,j+1,k,ell), fbest, xbest);
+                [fcurrent, fbest, xbest] = evaluate_function(FUN, P(:,i), fbest, xbest);
                 if fbest < ftarget
                     return
                 end
-                J(i,j+1,k,ell)=fcurrent;										
+                J(i)=fcurrent;										
 			else  % It did not move up the gradient so stop the run for this bacterium
 				m=Ns;
 			end
@@ -173,42 +185,46 @@ for j=1:Nc
 
 	
 %---------------------------------
-end  % j=1:Nc
+%end  % j=1:Nc
 %---------------------------------
 
 	% Reproduction
 	
+    %BwE dont need to sum JHealth according to paper 3
+    %We also simplify the “bacterial health” by the bacterium’s current fitness.
+        
     % Set the health of each of the S bacteria.
     % There are many ways to define this; here, we sum
 	% the nutrient concentrations over the lifetime of the bacterium.
-	Jhealth=sum(J(:,:,k,ell),2);         
+	%J health=sum(J(:,:,k,ell),2);         
                                          
 	% Sort cost and population to determine who can reproduce (ones that were in best nutrient
 	% concentrations over their life-time reproduce)
 	
-	[Jhealth,sortind]=sort(Jhealth); % Sorts the nutrient concentration in order 
+	[Jhealth,sortind]=sort(J(:,1)); % Sorts the nutrient concentration in order 
 									% of ascending cost in the first dimension (bacteria number)
 									% sortind are the indices in the new order
 		
-	P(:,:,1,k+1,ell)=P(:,sortind,Nc+1,k,ell); % Sorts the population in order of ascending Jhealth (the
+	P(:,:)=P(:,sortind); % Sorts the population in order of ascending Jhealth (the
 											% ones that got the most nutrients were the ones with 
 											% the lowest Jhealth values)
 	
-	C(:,k+1)=C(sortind,k); % And keeps the chemotaxis parameters with each bacterium at the next generation
+    %BwE I removed this, think we dont need it
+	%C(:,k+1)=C(sortind,k); % And keeps the chemotaxis parameters with each bacterium at the next generation
 		
 	% Split the bacteria (reproduction)
 	
 	for i=1:Sr
-		P(:,i+Sr,1,k+1,ell)=P(:,i,1,k+1,ell); % The least fit do not reproduce, the most 
+		P(:,i+Sr)=P(:,i); % The least fit do not reproduce, the most 
 		 									% fit ones split into two identical copies 
-		C(i+Sr,k+1)=C(i,k+1); 	% and they get the same parameters as for their mother
+		C(i+Sr,t+1)=C(i,t); 	% and they get the same parameters as for their mother
 	end
 
 	% Evolution can be added here (can add random modifications to C(i,k), Ns, Nc, etc)
 	
 
 %---------------------------------
-end  % k=1:Nre
+%end  % k=1:Nre
 %---------------------------------
 	
 	% Eliminate and disperse (on domain for our function) - keep same parameters C
@@ -216,14 +232,41 @@ end  % k=1:Nre
 	for m=1:S
 		if ped>rand  % Generate random number and if ped bigger than it then eliminate/disperse
             %BwE change random number produced min -4 max 4
-            P(:,m,1,1,ell+1)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
+            P(:,m)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
 		else
-			P(:,m,1,1,ell+1)=P(:,m,1,Nre+1,ell);  % Bacteria that are not dispersed
+			P(:,m)=P(:,m);  % Bacteria that are not dispersed
 		end
     end
     
+    
+    
+    % TODO BwE: Implement this correctly
+    % understand when and why it creates a small stepsize fbest < e(t)
+    
+    % Adaptation
+    % Where t is the current generation number
+    % fbest is the best fitness value among all the bacteria in the colony
+    % etis the required precision in the current generation
+    % and n, a, and ß are user-defined constants
+    if mod(t,n) == 0
+        if fbest < e(t)
+            C(t+1) = C(t - n)/alpha;
+            e(t+1) = e(t)/beta;
+        else
+            C(t+1) = C(t - n);
+            e(t+1) = e(t - n);
+        end
+    else
+        C(t+1) = C(t);
+        e(t+1) = e(t);
+    end
+
 %---------------------------------
-end  % ell=1:Ned
+end
+%---------------------------------
+    
+%---------------------------------
+%end  % ell=1:Ned
 %---------------------------------
 
 
