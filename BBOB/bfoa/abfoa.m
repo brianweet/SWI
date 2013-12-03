@@ -60,7 +60,7 @@ ped=0.25; % The probabilty that each bacteria will be eliminated/dispersed (assu
 % Initial population
 
 %P(:,:,:,:,:)=0*ones(p,S,Nc,Nre,Ned);  % First, allocate needed memory
-P(:,:)=zeros(p,S);  % First, allocate needed memory
+P(:,:,:)=zeros(p,S,max_generation);  % First, allocate needed memory
 
 % BBOB search space bounds (lb = -ub)
 ub = 4;
@@ -68,7 +68,7 @@ ub = 4;
 % % Another initialization possibility: Randomly place on domain:
 for m=1:S
 	%BwE Because of bbob: initialize domain uniformly randomly in [-4,4]
-    P(:,m,1,1,1)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
+    P(:,m,1)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
 end
 
 
@@ -110,10 +110,11 @@ for t = 1:max_generation
         %BwE: keep track of best position for this bacterium for this generation
 		sBestJ=inf;
         sBestX=[0;0];
+        sasas = P(:,i,t);
         
 		% Compute the nutrient concentration at the current location of this bacterium
 		[J(i,t), fbest, xbest, sBestJ, sBestX] = ...
-            evaluate_function(FUN, P(:,i), fbest, xbest, sBestJ, sBestX);
+            evaluate_function(FUN, P(:,i,t), fbest, xbest, sBestJ, sBestX);
         %BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
         if fbest < ftarget
             return
@@ -133,7 +134,7 @@ for t = 1:max_generation
 		% Next, move all the bacteria by a small amount in the direction that the tumble resulted in
 		% (this implements the "searching" behavior in a homogeneous medium)
 		
-		P(:,i)=P(:,i)+C(i,t)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i));
+		P(:,i,t+1)=P(:,i,t)+C(i,t)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i));
 										% This adds a unit vector in the random direction, scaled
 										% by the step size C(i,k)
 		
@@ -144,8 +145,8 @@ for t = 1:max_generation
         % a small step (used by the bacterium to decide if it should keep swimming)
         
 		%BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
-        [J(i,t), fbest, xbest, sBestJ, sBestX] = ...
-            evaluate_function(FUN, P(:,i), fbest, xbest, sBestJ, sBestX);
+        [J(i,t+1), fbest, xbest, sBestJ, sBestX] = ...
+            evaluate_function(FUN, P(:,i,t+1), fbest, xbest, sBestJ, sBestX);
         if fbest < ftarget
             return
         end
@@ -156,19 +157,19 @@ for t = 1:max_generation
 			
 			m=m+1;
 			
-			if J(i,t)<Jlast  % Test if moving up a nutrient gradient.  If it is then move further in
+			if J(i,t+1)<Jlast  % Test if moving up a nutrient gradient.  If it is then move further in
 				                     % same direction
-				Jlast=J(i,t); % First, save the nutrient concentration at current location
+				Jlast=J(i,t+1); % First, save the nutrient concentration at current location
 									  % to later use to see if moves up gradient at next step
 									  
 				% Next, extend the run in the same direction since it climbed at the last step
 				
-				P(:,i)=P(:,i)+C(i,t)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i));
+				P(:,i,t+1)=P(:,i,t+1)+C(i,t)*Delta(:,i)/sqrt(Delta(:,i)'*Delta(:,i));
 				
                 % Find concentration at where it swam to and give it new cost value
                 %BwE Because of bbob: use the FUN that is given as parameter and quit if fbest < ftarget
-                [J(i,t), fbest, xbest, sBestJ, sBestX] = ...
-                    evaluate_function(FUN, P(:,i), fbest, xbest, sBestJ, sBestX);
+                [J(i,t+1), fbest, xbest, sBestJ, sBestX] = ...
+                    evaluate_function(FUN, P(:,i,t+1), fbest, xbest, sBestJ, sBestX);
                 if fbest < ftarget
                     return
                 end								
@@ -181,8 +182,18 @@ for t = 1:max_generation
         %BwE: Save best position of this run for this bacteria
         JbestX(i,t,:)=sBestX;
         JbestJ(i,t)=sBestJ;
+        
+        
+        
 	end  % Go to next bacterium
-
+    
+        x = P(1,:,t);
+        y = P(2,:,t);
+        clf    
+        plot(x, y , 'h')   
+        axis([-5 5 -5 5]);
+        pause(.01)
+        drawnow
 	
 %---------------------------------
 %end  % j=1:Nc
@@ -200,14 +211,16 @@ for t = 1:max_generation
                                          
 	% Sort cost and population to determine who can reproduce (ones that were in best nutrient
 	% concentrations over their life-time reproduce)
-	
-	[Jhealth,sortind]=sort(J(:,t)); % Sorts the nutrient concentration in order 
+	 
+	[Jhealth,sortind]=sort(J(:,t+1)); % Sorts the nutrient concentration in order 
 									% of ascending cost in the first dimension (bacteria number)
 									% sortind are the indices in the new order
 		
-	P(:,:)=P(:,sortind); % Sorts the population in order of ascending Jhealth (the
+	P(:,:,t+1)=P(:,sortind,t+1); % Sorts the population in order of ascending Jhealth (the
 											% ones that got the most nutrients were the ones with 
 											% the lowest Jhealth values)
+    JbestX(:,:,:)=JbestX(sortind,:,:);
+    JbestJ(:,:)=JbestJ(sortind,:);
 	
     %BwE I removed this, think we dont need it
 	%C(:,k+1)=C(sortind,k); % And keeps the chemotaxis parameters with each bacterium at the next generation
@@ -215,9 +228,11 @@ for t = 1:max_generation
 	% Split the bacteria (reproduction)
 	
 	for b=1:Sr
-		P(:,b+Sr)=P(:,b); % The least fit do not reproduce, the most 
+		P(:,b+Sr,t+1)=P(:,b,t+1); % The least fit do not reproduce, the most 
 		 									% fit ones split into two identical copies 
 		%C(i+Sr,t+1)=C(i,t); 	% and they get the same parameters as for their mother
+        JbestX(b+Sr,t,:)=JbestX(b,t,:);
+        JbestJ(b+Sr,t)=JbestJ(b,t);
 	end
 
 	% Evolution can be added here (can add random modifications to C(i,k), Ns, Nc, etc)
@@ -232,9 +247,9 @@ for t = 1:max_generation
 	for m=1:S
 		if ped>rand  % Generate random number and if ped bigger than it then eliminate/disperse
             %BwE change random number produced min -4 max 4
-            P(:,m)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
+            P(:,m,t+1)=(ub*((2*round(rand(p,1))-1).*rand(p,1)));
 		else
-			P(:,m)=P(:,m);  % Bacteria that are not dispersed
+			P(:,m,t+1)=P(:,m,t+1);  % Bacteria that are not dispersed
 		end
     end
     
@@ -267,34 +282,35 @@ for t = 1:max_generation
         %Reinitialize colony position from the best-so-far position found by each bacterium    
         for b=1:S
             [~,idx]=sort(JbestJ(b,:));
-            P(:,b)= JbestX(b,idx(1),:);
+            P(:,b,t+1)= JbestX(b,idx(1),:);
         end
         
         %if (min(JbestJ(:,t))-ftarget) < e(t)
         if (fbest-ftarget) < e(t)
-            start = t-n;
+            start = t-n+1;
             if start < 1
                 start = 1;
-            end
+            end                
             C(:,t+1) = C(:,start)/alpha;
+            display(['smaller:' num2str(C(1,t+1)) ]) 
             e(t+1) = e(t)/beta;
         else
-            start = t-n;
+            start = t-n+1;
             if start < 1
                 start = 1;
             end
             C(:,t+1) = C(:,start);
+            display(['keep:' num2str(C(1,t+1)) ]) 
             e(t+1) = e(start);
         end
     else
         C(:,t+1) = C(:,t);
         e(t+1) = e(t);
-    end
-
+     end    
 %---------------------------------
 end
 %---------------------------------
-    
+    display(['fbest:' num2str(fbest) ])
 %---------------------------------
 %end  % ell=1:Ned
 %---------------------------------

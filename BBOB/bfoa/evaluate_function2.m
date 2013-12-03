@@ -1,4 +1,4 @@
-function [ fcurrent, fbest, xbest ] = evaluate_function( FUN, p, fbest, xbest )
+function [ fcurrent, fbest, xbest ] = evaluate_function2( FUN, p, fbest, xbest )
 %EVALUATE_FUNCTION Summary of this function goes here
 %   Detailed explanation goes here
     fcurrent = feval(FUN, p);
@@ -6,10 +6,4 @@ function [ fcurrent, fbest, xbest ] = evaluate_function( FUN, p, fbest, xbest )
         fbest = fcurrent;
         xbest = p;
     end
-    
-    if fcurrent < sBestJ
-        sBestJ=fcurrent;
-        sBestX(i,t)=p; 
-    end
 end
-
